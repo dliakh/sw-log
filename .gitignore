@@ -1,0 +1,9 @@
+# runtime data produced by the sw-log skill (state, work images, cached schedules)
+.sw-log/
+
+# pi coding agent session data
+.pi/
+
+# python bytecode
+__pycache__/
+*.pyc
