@@ -186,6 +186,19 @@ def to_utc_iso(epoch: float) -> str:
     return dt.datetime.fromtimestamp(epoch, dt.timezone.utc).isoformat(timespec="seconds")
 
 
+def dir_has_images(path: Path) -> bool:
+    """True if the directory contains at least one directly-contained image.
+
+    Used to distinguish a real photo directory from a mount root that only
+    holds a Photos/ subfolder (e.g. a phone drive): such a root has no images
+    of its own and must not be reported as a mounted photo directory.
+    """
+    try:
+        return any(p.suffix.lower() in IMAGE_EXTS for p in path.iterdir())
+    except OSError:
+        return False
+
+
 def describe(record: dict, parent: str) -> None:
     rel = os.path.join(os.path.basename(parent), record["name"])
     print(f"  {rel:36s} capture={record['capture_utc']}  "
@@ -310,7 +323,10 @@ def main() -> int:
         if all(d != seed for d in remembered):
             remembered.append(seed)
         absent = [str(d) for d in remembered if not d.is_dir()]
-        targets = [d for d in remembered if d.is_dir()]
+        # Only directories that actually contain images count as photo
+        # directories; a mount root that holds only a Photos/ subfolder has no
+        # images of its own and is excluded here (and dropped from state below).
+        targets = [d for d in remembered if d.is_dir() and dir_has_images(d)]
         for a in absent:
             log(f"[scan] skipped (not mounted): {a}")
         if not targets:
