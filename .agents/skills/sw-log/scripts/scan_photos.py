@@ -336,6 +336,15 @@ def main() -> int:
             key=lambda p: (p.stat().st_mtime, p.name),
         )
 
+        if not images:
+            # A directory with no directly-contained images is not a photo
+            # directory (e.g. a phone-drive root that only holds a Photos/
+            # subfolder). Never remember it, so pointing -P/--photos-dir at a
+            # parent path does not pollute future auto-scans.
+            state["directories"].pop(str(photos_dir), None)
+            log(f"[scan] skipped (no images directly in dir): {photos_dir}")
+            continue
+
         new_records = []
         for path in images:
             try:

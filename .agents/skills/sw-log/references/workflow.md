@@ -130,6 +130,21 @@ Marks the pending files processed in `state.json` — routed to each record's
 directory, each directory updating its own `processed` and `last_mtime` — so the
 next scan starts fresh per device.
 
+### What to commit (git)
+
+Only version-control **code and skill documentation**: the `scripts/*.py` tools
+and the `.md` reference files under `.agents/skills/sw-log/`. Do **not** commit
+the **configuration file** (`.sw-log/config.json`) or the **results of scans**
+(`.sw-log/pending.json`, `.sw-log/resolved.json`, `.sw-log/state.json`,
+`.sw-log/sw-log.csv`, the `eibi/` cache, `transmitter-cache.json`, `work/`).
+Those are machine-local and already git-ignored via the `.sw-log/` entry in
+`.gitignore`. A typical commit is therefore just the code/doc edits:
+
+```
+git add .agents/skills/sw-log/scripts .agents/skills/sw-log/references
+git commit -m "fix: ..."
+```
+
 ## Operational notes
 
 - **Interruptability**: every step is idempotent (scan reappends only new files,
