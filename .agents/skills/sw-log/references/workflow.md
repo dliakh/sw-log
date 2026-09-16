@@ -93,13 +93,32 @@ Render a markdown table (all times UTC):
 |---|---|---|---|---|---|---|
 
 `freq` shown as human-friendly (e.g. `9410 kHz`, `94.3 MHz`, `954 kHz`).
-`location` = configured listening site (Paris, France).
 
-Append the same rows to `.sw-log/sw-log.csv` (header kept once):
+**`location` is the TRANSMITTER site** — the place the signal comes from (e.g.
+`Germany (Weenermoor)`, `China`, `UK (Woofferton)`), *not* the observer. For SW
+the signal arrives via skywave from transmitters worldwide, so this is the
+transmitter's country/relay site; for AM it is the local MW transmitter
+city/country. Use the transmitter cache (`.sw-log/transmitter-cache.json`, built
+by `resolve_station.py`) or `.sw-log/transmitters.json` / `am-transmitters.json`
+for site coordinates, power, azimuth and distance-from-observer to judge which of
+several candidates is most likely (closer / more powerful / beam aimed at us).
+
+> The observer/listener location is the `location` field in `config.json`
+> (default Paris, France 48.8566 N 2.3522 E). Keep the two distinct: config =
+> *where we are*, the report/table `location` column = *where the transmitter is*.
+
+Append the same rows to `.sw-log/sw-log.csv` — **one** header row, kept once:
 
 ```
-date_utc,time_utc,freq_khz,band,station,location,notes
+Date (UTC),Time (UTC),Frequency (kHz),Band,Station,Location,Notes
 ```
+
+- `Frequency (kHz)` holds a **bare number** (kHz is the implied unit — never
+  store the `kHz` text inside the cell).
+- Always write via `csv.writer` so any comma inside a field (e.g. a location
+  `Bethel, PA`) is quoted; an unquoted comma silently shifts columns.
+- Keep rows sorted ascending by `(Date, Time, Frequency)` and free of
+  exact-duplicate rows.
 
 ### 6. Commit
 

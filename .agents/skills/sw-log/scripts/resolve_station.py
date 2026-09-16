@@ -97,6 +97,45 @@ def fetch(url, encoding="utf-8", retries=3, delay=2.0, timeout=30):
     return None
 
 
+# ---------- transmitter cache -----------------------------------------------
+# short-wave.info / MWLIST transmitter data (site lat/lon, power, azimuth)
+# rarely changes, so cache scraped responses per frequency to avoid re-fetching
+# (and to dodge HTTP 429 rate-limiting). Cache file: <data-dir>/transmitter-cache.json
+
+def load_cache(data_dir):
+    p = data_dir / "transmitter-cache.json"
+    if p.exists():
+        try:
+            return json.loads(p.read_text())
+        except Exception as exc:  # noqa: BLE001
+            log(f"[resolve] cache unreadable ({exc}), starting fresh")
+    return {"freqs": {}}
+
+
+def save_cache(data_dir, cache):
+    (data_dir / "transmitter-cache.json").write_text(
+        json.dumps(cache, indent=2, ensure_ascii=False))
+
+
+def fetch_cached(freq, cache, ttl, data_dir, delay=2.0):
+    """Return short-wave.info HTML for a frequency, reusing a cached scrape
+    while it is younger than `ttl` seconds (transmitter data changes slowly)."""
+    freqs = cache.setdefault("freqs", {})
+    key = str(int(freq))
+    entry = freqs.get(key)
+    if entry:
+        try:
+            fetched = dt.datetime.fromisoformat(entry["fetched_utc"])
+            if (dt.datetime.now(dt.timezone.utc) - fetched).total_seconds() < ttl:
+                return entry["html"]
+        except (KeyError, ValueError):
+            pass
+    html = fetch(f"http://www.short-wave.info/index.php?freq={int(freq)}", delay=delay)
+    if html:
+        freqs[key] = {"fetched_utc": dt.datetime.now(dt.timezone.utc).isoformat(), "html": html}
+    return html
+
+
 # ---------- short-wave.info -------------------------------------------------
 
 def parse_swi(doc, capture_dt, lat, lon):
@@ -275,6 +314,8 @@ def main() -> int:
     ap.add_argument("--sw-tolerance", type=float, default=0.5, help="kHz tolerance for EiBi freq match")
     ap.add_argument("--sw-delay", type=float, default=1.0,
                     help="seconds to wait before each short-wave.info query (avoid HTTP 429)")
+    ap.add_argument("--sw-cache-ttl", type=float, default=604800,
+                    help="seconds a cached short-wave.info scrape stays fresh (default 7d)")
     args = ap.parse_args()
 
     data_dir = Path(args.data_dir).resolve()
@@ -285,6 +326,8 @@ def main() -> int:
     lat, lon = float(loc.get("lat", 48.8566)), float(loc.get("lon", 2.3522))
 
     results = []
+    cache = load_cache(data_dir)
+
     for rec in recs:
         band = infer_band(rec)
         if band is None:
@@ -307,7 +350,7 @@ def main() -> int:
             candidates = eibi_match(when, freq, args.sw_tolerance, data_dir)
             if args.sw_delay > 0:
                 time.sleep(args.sw_delay)
-            html = fetch(f"http://www.short-wave.info/index.php?freq={int(freq)}")
+            html = fetch_cached(freq, cache, args.sw_cache_ttl, data_dir, args.sw_delay)
             if html:
                 candidates += parse_swi(html, when, lat, lon)
             else:
@@ -337,6 +380,8 @@ def main() -> int:
         for c in candidates[:12]:
             dist = f" {c['distance_km']}km" if c.get("distance_km") else ""
             print(f"   [{c['db']:14s}] {c['station'][:34]:34s} {c.get('start_utc','')}-{c.get('end_utc','')} {c.get('lang','')} {dist}")
+
+    save_cache(data_dir, cache)
 
     out = data_dir / "resolved.json"
     out.write_text(json.dumps(results, indent=2, ensure_ascii=False))

@@ -102,6 +102,19 @@ Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0
   discovers it works again, prefer it over short-wave.info (it is more accurate
   and timezone-correct), but do not block the pipeline on it.
 
+## Transmitter cache (per-frequency scrape cache)
+
+short-wave.info / MWLIST transmitter data (site lat/lon, power, azimuth) changes
+rarely, so `resolve_station.py` caches each scraped response keyed by frequency
+in `<data-dir>/transmitter-cache.json` (option `--sw-cache-ttl`, default 7 days).
+A fresh entry is reused instead of re-fetching — this also avoids HTTP 429
+rate-limiting when the same frequency is scanned across sessions. The cache
+populates the transmitter-site data used for the report `location` column
+(`location` = transmitter site, not the observer — see
+`references/workflow.md`). The higher-level `build_transmitters_db.py` output
+(`transmitters.json`, `am-transmitters.json`) is a separate, derived cache of
+unique sites with distance/azimuth from the observer.
+
 ## FM
 
 - No schedule database: FM is inherently local (100 km range). Candidates are
